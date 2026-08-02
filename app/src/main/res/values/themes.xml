@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.Rusoit" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>
