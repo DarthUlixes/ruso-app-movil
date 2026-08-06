@@ -16,7 +16,7 @@ class ViewModelFactory(
         return when {
             modelClass.isAssignableFrom(MonitoringViewModel::class.java) -> {
                 @Suppress("UNCHECKED_CAST")
-                MonitoringViewModel(monitoringRepository!!, sessionManager!!) as T
+                MonitoringViewModel(monitoringRepository!!, authRepository!!, sessionManager!!) as T
             }
             modelClass.isAssignableFrom(LoginViewModel::class.java) -> {
                 @Suppress("UNCHECKED_CAST")

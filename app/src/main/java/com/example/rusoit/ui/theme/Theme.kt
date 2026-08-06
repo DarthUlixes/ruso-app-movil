@@ -10,25 +10,25 @@ import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 private val DarkColorScheme = darkColorScheme(
-    primary = FireRed,
-    secondary = FireOrange,
-    tertiary = FireYellow,
-    background = DarkBackground,
-    surface = DarkSurface,
+    primary = HudColors.AccentPrimary,
+    secondary = HudColors.Amber,
+    tertiary = HudColors.Green,
+    background = HudColors.BgPrimary,
+    surface = HudColors.BgCard,
     onPrimary = Color.White,
     onSecondary = Color.Black,
     onTertiary = Color.Black,
-    onBackground = TextWhite,
-    onSurface = TextWhite
+    onBackground = Color.White,
+    onSurface = Color.White
 )
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 private val LightColorScheme = lightColorScheme(
-    primary = FireRed,
-    secondary = FireOrange,
-    tertiary = FireYellow,
-    background = LightBackground,
-    surface = LightSurface,
+    primary = HudColors.AccentPrimary,
+    secondary = HudColors.Amber,
+    tertiary = HudColors.Green,
+    background = Color.White,
+    surface = Color.LightGray,
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.Black,

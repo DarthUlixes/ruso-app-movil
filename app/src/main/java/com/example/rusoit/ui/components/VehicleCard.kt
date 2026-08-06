@@ -3,7 +3,7 @@ package com.example.rusoit.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import com.example.rusoit.data.model.Vehicle
+import com.example.rusoit.ui.theme.HudColors
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -20,24 +21,29 @@ fun VehicleCard(
     vehicle: Vehicle,
     onClick: () -> Unit
 ) {
-    val statusColor = when (vehicle.status) {
-        "Operativa" -> Color(0xFF4CAF50)
-        "En Taller" -> Color(0xFFFF9800)
-        else -> Color(0xFFF44336)
+    val status = vehicle.status?.lowercase() ?: "desconocido"
+    val isOperational = status == "operativa" || status == "operativo"
+    val isInWorkshop = status == "taller" || status == "en taller"
+
+    val statusColor = when {
+        isOperational -> HudColors.Green
+        isInWorkshop -> HudColors.Amber
+        else -> Color.Red
     }
 
-    val statusIcon = when (vehicle.status) {
-        "Operativa" -> Icons.Default.CheckCircle
-        "En Taller" -> Icons.Default.Build
+    val statusIcon = when {
+        isOperational -> Icons.Default.Check
+        isInWorkshop -> Icons.Default.Build
         else -> Icons.Default.Warning
     }
 
     Card(
         onClick = onClick,
         modifier = Modifier
-            .width(200.dp)
-            .height(150.dp),
-        scale = CardDefaults.scale(focusedScale = 1.1f)
+            .width(240.dp)
+            .height(140.dp),
+        scale = CardDefaults.scale(focusedScale = 1.1f),
+        colors = CardDefaults.colors(containerColor = HudColors.BgCard)
     ) {
         Column(
             modifier = Modifier
@@ -51,30 +57,43 @@ fun VehicleCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "U-${vehicle.number_unit}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    text = "U-${vehicle.number_unit ?: "S/N"}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = HudColors.TextPrimary
                 )
                 Icon(
                     imageVector = statusIcon,
                     contentDescription = null,
                     tint = statusColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             
             Column {
                 Text(
-                    text = vehicle.type ?: "Unidad Operativa",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "${vehicle.brandName() ?: "Marca"} - ${vehicle.model ?: "Modelo"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HudColors.TextMuted,
+                    maxLines = 1
                 )
-                Text(
-                    text = vehicle.status?.uppercase() ?: "DESCONOCIDO",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "KM: ${vehicle.kilometers?.toInt() ?: 0}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = HudColors.TextSecondary
+                    )
+                    Text(
+                        text = status.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
         }
     }

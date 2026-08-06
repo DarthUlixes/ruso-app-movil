@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         val authApiService = retrofit.create(AuthApiService::class.java)
         val monitoringApiService = retrofit.create(MonitoringApiService::class.java)
         
-        val authRepository = AuthRepository(authApiService)
+        val authRepository = AuthRepository(authApiService, sessionManager)
         val monitoringRepository = MonitoringRepository(monitoringApiService)
         
         val factory = ViewModelFactory(
@@ -58,8 +58,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     val currentToken by sessionManager.authToken.collectAsState(initial = initialToken)
+                    val isLoggedIn = !currentToken.isNullOrBlank()
                     
-                    RusoitApp(factory, currentToken != null)
+                    RusoitApp(factory, isLoggedIn)
                 }
             }
         }
@@ -97,7 +98,9 @@ fun RusoitApp(factory: ViewModelFactory, isLoggedIn: Boolean) {
             DashboardScreen(
                 factory = factory,
                 onLogout = {
-                    // El cambio en isLoggedIn disparará el LaunchedEffect anterior
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }

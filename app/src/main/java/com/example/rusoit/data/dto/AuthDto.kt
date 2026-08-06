@@ -4,16 +4,29 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class LoginRequest(
-    val identifier: String
-)
+    val identifier: String,
+    val email: String? = null,
+    val employee_number: String? = null
+) {
+    companion object {
+        fun fromIdentifier(raw: String): LoginRequest {
+            val value = raw.trim()
+            return if (value.contains("@")) {
+                LoginRequest(identifier = value, email = value)
+            } else {
+                LoginRequest(identifier = value, employee_number = value)
+            }
+        }
+    }
+}
 
 @Serializable
 data class OtpResponse(
-    val message: String,
-    val requires_otp: Boolean,
+    val message: String? = null,
+    val requires_otp: Boolean? = null,
     val challenge_id: String,
-    val email_hint: String,
-    val expires_in: Int
+    val email_hint: String? = null,
+    val expires_in: Int? = null
 )
 
 @Serializable
