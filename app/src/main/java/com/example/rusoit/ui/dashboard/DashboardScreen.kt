@@ -99,13 +99,14 @@ fun DashboardScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    SidebarIcon(Icons.Default.BarChart, "RESUMEN\nOPERATIVO", selectedTab == 0, enabled = !isOverlayOpen) { selectedTab = 0 }
-                    SidebarIcon(Icons.AutoMirrored.Filled.List, "PARTES DE\nATENCIÓN", selectedTab == 1, enabled = !isOverlayOpen) { selectedTab = 1 }
-                    SidebarIcon(Icons.Default.CalendarMonth, "AGENDA", selectedTab == 2, enabled = !isOverlayOpen) { selectedTab = 2 }
-                    SidebarIcon(Icons.Default.Shield, "SCI", selectedTab == 3, enabled = !isOverlayOpen) { selectedTab = 3 }
-                    SidebarIcon(Icons.Default.Build, "HERRAMIENTAS", selectedTab == 4, enabled = !isOverlayOpen) { selectedTab = 4 }
-                    SidebarIcon(Icons.Default.FireTruck, "CONTROL DE\nVEHÍCULO", selectedTab == 5, enabled = !isOverlayOpen) { selectedTab = 5 }
-                    SidebarIcon(Icons.Default.Person, "MANDO", selectedTab == 6, enabled = !isOverlayOpen) { selectedTab = 6 }
+                    SidebarIcon(Icons.Default.Sensors, "MONITOREO\nUNIDADES", selectedTab == 0, enabled = !isOverlayOpen) { selectedTab = 0 }
+                    SidebarIcon(Icons.Default.BarChart, "RESUMEN\nOPERATIVO", selectedTab == 1, enabled = !isOverlayOpen) { selectedTab = 1 }
+                    SidebarIcon(Icons.AutoMirrored.Filled.List, "PARTES DE\nATENCIÓN", selectedTab == 2, enabled = !isOverlayOpen) { selectedTab = 2 }
+                    SidebarIcon(Icons.Default.CalendarMonth, "AGENDA", selectedTab == 3, enabled = !isOverlayOpen) { selectedTab = 3 }
+                    SidebarIcon(Icons.Default.Shield, "SCI", selectedTab == 4, enabled = !isOverlayOpen) { selectedTab = 4 }
+                    SidebarIcon(Icons.Default.Build, "HERRAMIENTAS", selectedTab == 5, enabled = !isOverlayOpen) { selectedTab = 5 }
+                    SidebarIcon(Icons.Default.FireTruck, "CONTROL DE\nVEHÍCULO", selectedTab == 6, enabled = !isOverlayOpen) { selectedTab = 6 }
+                    SidebarIcon(Icons.Default.Person, "MANDO", selectedTab == 7, enabled = !isOverlayOpen) { selectedTab = 7 }
                 }
 
                 HorizontalDivider(
@@ -138,13 +139,14 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f)
                 ) { targetTab ->
                     when (targetTab) {
-                        0 -> StatisticsView(monitoringViewModel, onSessionExpired = { monitoringViewModel.logout(onLogout) })
-                        1 -> ServicesView(monitoringViewModel) { selectedFolio = it }
-                        2 -> AgendaView(monitoringViewModel)
-                        3 -> SCIView(monitoringViewModel) { selectedSCI = it }
-                        4 -> InventoryView(monitoringViewModel) { selectedTool = it }
-                        5 -> VehiclesControlView(monitoringViewModel, enabled = !isOverlayOpen) { selectedVehicle = it }
-                        6 -> PersonnelView(monitoringViewModel)
+                        0 -> MonitoreoUnidadesView(monitoringViewModel)
+                        1 -> StatisticsView(monitoringViewModel, onSessionExpired = { monitoringViewModel.logout(onLogout) })
+                        2 -> ServicesView(monitoringViewModel) { selectedFolio = it }
+                        3 -> AgendaView(monitoringViewModel)
+                        4 -> SCIView(monitoringViewModel) { selectedSCI = it }
+                        5 -> InventoryView(monitoringViewModel) { selectedTool = it }
+                        6 -> VehiclesControlView(monitoringViewModel, enabled = !isOverlayOpen) { selectedVehicle = it }
+                        7 -> PersonnelView(monitoringViewModel)
                         else -> PlaceholderView("Módulo no disponible")
                     }
                 }

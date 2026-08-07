@@ -28,7 +28,7 @@ class MonitoringRepository(private val apiService: MonitoringApiService) {
             }
             is java.net.UnknownHostException -> {
                 Log.e("API_ERROR", "Host", e)
-                "Sin conexión a rusoit-api.onrender.com"
+                "Sin conexión al API (${com.example.rusoit.data.api.RetrofitInstance.BASE_URL})"
             }
             else -> {
                 Log.e("API_ERROR", "Exception: ${e.localizedMessage}")
@@ -66,6 +66,15 @@ class MonitoringRepository(private val apiService: MonitoringApiService) {
         emit(Resource.Loading())
         emit(safeApiCall { apiService.getWorkShifts() })
     }
+
+    /** Monitoreo unidades/servicios: GET /work-force/on-service-by-date-and-workshift */
+    fun getUnitsOnService(): Flow<Resource<List<UnitOnService>>> = flow {
+        emit(Resource.Loading())
+        emit(safeApiCall { apiService.getUnitsOnService() })
+    }
+
+    suspend fun fetchUnitsOnService(): Resource<List<UnitOnService>> =
+        safeApiCall { apiService.getUnitsOnService() }
 
     fun getTypeServices(): Flow<Resource<List<TypeService>>> = flow {
         emit(Resource.Loading())

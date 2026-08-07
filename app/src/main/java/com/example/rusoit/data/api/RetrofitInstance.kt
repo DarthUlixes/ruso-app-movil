@@ -18,8 +18,22 @@ import okhttp3.MediaType.Companion.toMediaType
 import java.util.concurrent.TimeUnit
 
 object RetrofitInstance {
-    /** API producción (mismo host que VUE_APP_API_URL del web). */
-    const val BASE_URL = "https://rusoit-api.onrender.com/"
+    /**
+     * true = API local (rusoit-api en tu PC).
+     * false = Render producción.
+     *
+     * TV física misma WiFi → IP de la PC (ej. 192.168.1.71).
+     * Emulador Android → usar 10.0.2.2 en lugar de la IP LAN.
+     */
+    private const val USE_LOCAL_API = true
+    private const val LOCAL_API_HOST = "192.168.1.71" // cambia si tu IP LAN es otra
+    private const val LOCAL_API_PORT = 3000
+
+    val BASE_URL: String = if (USE_LOCAL_API) {
+        "http://$LOCAL_API_HOST:$LOCAL_API_PORT/"
+    } else {
+        "https://rusoit-api.onrender.com/"
+    }
 
     /** Render free tier puede tardar en despertar (cold start). */
     private const val TIMEOUT_SECONDS = 60L

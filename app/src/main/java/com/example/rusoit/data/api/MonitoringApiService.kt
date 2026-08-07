@@ -89,4 +89,8 @@ interface MonitoringApiService {
 
     @GET("folio/{id}")
     suspend fun getServiceById(@Path("id") id: Int): Folio
+
+    /** Monitoreo TV: unidades del turno + servicio activo (en curso / libre). */
+    @GET("work-force/on-service-by-date-and-workshift")
+    suspend fun getUnitsOnService(): List<UnitOnService>
 }

@@ -86,6 +86,12 @@ class MonitoringViewModel(
     private val _folioDetail = MutableStateFlow<Resource<Folio>?>(null)
     val folioDetail = _folioDetail.asStateFlow()
 
+    private val _unitsOnService = MutableStateFlow<Resource<List<UnitOnService>>?>(null)
+    val unitsOnService = _unitsOnService.asStateFlow()
+
+    private val _colognes = MutableStateFlow<Resource<List<Cologne>>?>(null)
+    val colognes = _colognes.asStateFlow()
+
     fun loadStatusStats(dateFrom: String? = null, dateTo: String? = null) {
         repository.getStatusStatistics(dateFrom, dateTo).onEach { 
             _statusStats.value = it 
@@ -112,6 +118,26 @@ class MonitoringViewModel(
     fun loadWorkShifts() {
         repository.getWorkShifts().onEach { 
             _workShifts.value = it 
+        }.launchIn(viewModelScope)
+    }
+
+    fun loadUnitsOnService(silent: Boolean = false) {
+        viewModelScope.launch {
+            val hadData = _unitsOnService.value is Resource.Success
+            if (!silent || !hadData) {
+                _unitsOnService.value = Resource.Loading()
+            }
+            val result = repository.fetchUnitsOnService()
+            // En refresh silencioso no borramos la lista si falla temporalmente
+            if (result is Resource.Success || !hadData || !silent) {
+                _unitsOnService.value = result
+            }
+        }
+    }
+
+    fun loadColognes() {
+        repository.getColognes().onEach {
+            _colognes.value = it
         }.launchIn(viewModelScope)
     }
 

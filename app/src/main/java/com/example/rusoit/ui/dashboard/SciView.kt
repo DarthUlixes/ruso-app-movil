@@ -171,19 +171,23 @@ private fun SciListCard(report: SCIInformation, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(190.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp).fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .background(
-                        if (report.isActive()) HudColors.AccentPrimary else HudColors.TextMuted,
-                        RoundedCornerShape(999.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 5.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            if (report.isActive()) HudColors.Green else HudColors.AccentPrimary,
+                            RoundedCornerShape(999.dp)
+                        )
+                )
                 Text(
-                    if (report.isActive()) "EN CURSO" else (report.status?.uppercase(Locale.getDefault()) ?: "CERRADO"),
+                    if (report.isActive()) "ACTIVO" else (report.status?.uppercase(Locale.getDefault()) ?: "CERRADO"),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.White
+                    color = if (report.isActive()) HudColors.Green else HudColors.AccentPrimary
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
