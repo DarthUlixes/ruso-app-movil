@@ -50,7 +50,7 @@ import java.util.Locale
 fun SCIView(viewModel: MonitoringViewModel, onSCIClick: (SCIInformation) -> Unit) {
     val activeResource by viewModel.sciReports.collectAsState()
     val allResource by viewModel.sciAll.collectAsState()
-    var tab by remember { mutableStateOf(0) } // 0 activos, 1 historial
+    var tab by remember { mutableStateOf(0) } // 0 activos, 1 historial, 2 mapa
 
     LaunchedEffect(Unit) {
         viewModel.loadSCIReports()
@@ -74,30 +74,44 @@ fun SCIView(viewModel: MonitoringViewModel, onSCIClick: (SCIInformation) -> Unit
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SciTabChip("Activos", tab == 0) { tab = 0 }
             SciTabChip("Historial", tab == 1) { tab = 1 }
-            Spacer(modifier = Modifier.weight(1f))
-            Surface(
-                onClick = {
-                    viewModel.loadSCIReports()
-                    viewModel.loadAllSCIReports()
-                },
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = HudColors.BgCard,
-                    focusedContainerColor = HudColors.BgCardHover
-                )
-            ) {
-                Text(
-                    "ACTUALIZAR",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    color = HudColors.AccentPrimary
-                )
-            }
+            SciTabChip("Mapa", tab == 2) { tab = 2 }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        if (tab == 2) {
+            val active = (activeResource as? Resource.Success)?.data.orEmpty()
+                .filter { it.isActive() }
+            val withCoords = remember(active) {
+                active.mapNotNull { report ->
+                    val coords = report.parseLatLng() ?: return@mapNotNull null
+                    SciMapPoint(
+                        id = report.id,
+                        lat = coords.first,
+                        lng = coords.second,
+                        title = report.name ?: "SCI ${report.id}",
+                        active = report.isActive()
+                    )
+                }
+            }
+            when {
+                activeResource is Resource.Loading || activeResource == null -> {
+                    LoadingSpinner("Cargando mapa SCI...")
+                }
+                withCoords.isEmpty() -> {
+                    PlaceholderView("Sin SCI activos con coordenadas")
+                }
+                else -> {
+                    SciOsmMultiMap(
+                        points = withCoords,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(HudColors.BgCard, RoundedCornerShape(12.dp))
+                    )
+                }
+            }
+            return@Column
+        }
 
         val resource = if (tab == 0) activeResource else allResource
         when {
@@ -184,7 +198,7 @@ private fun SciListCard(report: SCIInformation, onClick: () -> Unit) {
                         )
                 )
                 Text(
-                    if (report.isActive()) "ACTIVO" else (report.status?.uppercase(Locale.getDefault()) ?: "CERRADO"),
+                    if (report.isActive()) "ACTIVO" else report.statusLabelEs(),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     color = if (report.isActive()) HudColors.Green else HudColors.AccentPrimary
@@ -213,7 +227,7 @@ private fun SciListCard(report: SCIInformation, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                "ABRIR MAPA Y DETALLE >",
+                "VER DETALLE >",
                 color = HudColors.AccentPrimary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black
@@ -230,7 +244,6 @@ fun SCIDetailOverlay(
 ) {
     val focusRequester = remember { FocusRequester() }
     val detailResource by viewModel.sciDetail.collectAsState()
-    var showMapFullscreen by remember { mutableStateOf(false) }
 
     LaunchedEffect(sci.id) {
         viewModel.loadSCIDetail(sci.id)
@@ -240,19 +253,23 @@ fun SCIDetailOverlay(
     }
 
     val current = when (val r = detailResource) {
-        is Resource.Success -> r.data ?: sci
+        is Resource.Success -> if (r.data?.id == sci.id) r.data else sci
         else -> sci
     }
     val coords = remember(current.ubication) { current.parseLatLng() }
+    val isLoading = when (val r = detailResource) {
+        null -> true
+        is Resource.Loading -> true
+        is Resource.Success -> r.data?.id != sci.id
+        else -> false
+    }
 
-    // Al volver del mapa a pantalla completa, recuperar foco en Cerrar
-    LaunchedEffect(showMapFullscreen) {
-        if (!showMapFullscreen) {
-            focusRequester.requestFocus()
-        }
+    LaunchedEffect(isLoading) {
+        if (!isLoading) focusRequester.requestFocus()
     }
 
     FocusTrappedModal(
+        onDismiss = onDismiss,
         scrimAlpha = 0.94f,
         initialFocusRequester = focusRequester
     ) {
@@ -285,49 +302,52 @@ fun SCIDetailOverlay(
                     )
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    if (detailResource is Resource.Loading) {
+                    if (isLoading) {
                         CircularProgressIndicator(color = HudColors.AccentPrimary, strokeWidth = 3.dp)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text("Actualizando desde /sci/${sci.id}...", color = HudColors.TextMuted, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    InfoRow(
-                        "ESTADO:",
-                        current.status?.uppercase(Locale.getDefault()) ?: "ACTIVO",
-                        if (current.isActive()) HudColors.Amber else HudColors.Green
-                    )
-                    InfoRow("COORDENADAS:", current.ubication ?: "Sin ubicación")
-                    InfoRow("INICIO:", current.date_to_start?.take(10) ?: "—")
-                    current.time_to_start?.let { InfoRow("HORA:", it) }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("DESCRIPCIÓN / RESUMEN", style = MaterialTheme.typography.labelSmall, color = HudColors.TextMuted)
-                    Text(
-                        current.description ?: "Sin descripción registrada.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    if (coords != null) {
+                        Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = { showMapFullscreen = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.colors(containerColor = HudColors.Blue)
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                            colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
                         ) {
-                            Icon(Icons.Default.Map, null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("ABRIR MAPA", fontWeight = FontWeight.Bold)
+                            Text("CERRAR", fontWeight = FontWeight.Bold)
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
-                    ) {
-                        Text("CERRAR", fontWeight = FontWeight.Bold)
+                    } else {
+                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                            Text(
+                                "ESTADO:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = HudColors.TextMuted
+                            )
+                            Text(
+                                current.statusLabelEs(),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (current.isActive()) HudColors.Green else HudColors.AccentPrimary,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        InfoRow("COORDENADAS:", current.ubication ?: "Sin ubicación")
+                        InfoRow("INICIO:", current.date_to_start?.take(10) ?: "—")
+                        current.time_to_start?.let { InfoRow("HORA:", formatSciTime(it)) }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("DESCRIPCIÓN / RESUMEN", style = MaterialTheme.typography.labelSmall, color = HudColors.TextMuted)
+                        Text(
+                            current.description ?: "Sin descripción registrada.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                            colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
+                        ) {
+                            Text("CERRAR", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
@@ -337,97 +357,200 @@ fun SCIDetailOverlay(
                         .weight(0.62f)
                         .fillMaxHeight()
                         .background(HudColors.BgPrimary)
-                        .focusProperties { canFocus = false }
+                        .focusProperties { canFocus = false },
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (coords == null) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Map, null, tint = HudColors.AccentPrimary, modifier = Modifier.size(56.dp))
-                            Text("Sin coordenadas válidas", color = HudColors.TextMuted, fontWeight = FontWeight.Bold)
-                            Text(current.ubication ?: "", color = HudColors.Amber, fontSize = 12.sp)
+                    when {
+                        isLoading -> {
+                            CircularProgressIndicator(color = HudColors.AccentPrimary, strokeWidth = 3.dp)
                         }
-                    } else {
-                        SciOsmMap(
-                            lat = coords.first,
-                            lng = coords.second,
-                            title = current.name ?: "SCI",
-                            modifier = Modifier.fillMaxSize(),
-                            allowWebView = true
-                        )
+                        coords == null -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.Map, null, tint = HudColors.AccentPrimary, modifier = Modifier.size(56.dp))
+                                Text("Sin coordenadas válidas", color = HudColors.TextMuted, fontWeight = FontWeight.Bold)
+                                Text(current.ubication ?: "", color = HudColors.Amber, fontSize = 12.sp)
+                            }
+                        }
+                        else -> {
+                            SciOsmMap(
+                                lat = coords.first,
+                                lng = coords.second,
+                                title = current.name ?: "SCI",
+                                modifier = Modifier.fillMaxSize(),
+                                allowWebView = true
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-
-    if (showMapFullscreen && coords != null) {
-        SciMapFullscreenModal(
-            title = current.name ?: "SCI",
-            lat = coords.first,
-            lng = coords.second,
-            ubication = current.ubication,
-            onDismiss = { showMapFullscreen = false }
-        )
     }
 }
 
 
-@Composable
-private fun SciMapFullscreenModal(
-    title: String,
-    lat: Double,
-    lng: Double,
-    ubication: String?,
-    onDismiss: () -> Unit
-) {
-    val focusRequester = remember { FocusRequester() }
+private data class SciMapPoint(
+    val id: Int,
+    val lat: Double,
+    val lng: Double,
+    val title: String,
+    val active: Boolean
+)
 
-    FocusTrappedModal(
-        scrimAlpha = 0.96f,
-        initialFocusRequester = focusRequester
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun SciOsmMultiMap(
+    points: List<SciMapPoint>,
+    modifier: Modifier = Modifier
+) {
+    var loading by remember(points) { mutableStateOf(true) }
+    var loadFailed by remember(points) { mutableStateOf(false) }
+
+    val markersJs = remember(points) {
+        points.joinToString(",\n") { p ->
+            val safe = p.title
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", " ")
+                .replace("\"", "\\\"")
+            val color = if (p.active) "#22C55E" else "#DC2626"
+            "{lat:${p.lat},lng:${p.lng},title:'$safe',color:'$color'}"
+        }
+    }
+
+    val html = remember(markersJs) {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <style>
+            html, body, #map { margin:0; padding:0; height:100%; width:100%; background:#1e1e20; }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            var points = [$markersJs];
+            var map = L.map('map', {
+              zoomControl: true,
+              dragging: true,
+              scrollWheelZoom: false,
+              doubleClickZoom: false,
+              boxZoom: false,
+              keyboard: false,
+              tap: false
+            });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: 'OSM'
+            }).addTo(map);
+            var bounds = L.latLngBounds([]);
+            points.forEach(function(p) {
+              var icon = L.divIcon({
+                className: '',
+                html: '<div style="width:14px;height:14px;border-radius:50%;background:'+p.color+';border:2px solid #fff;box-shadow:0 0 4px #000;"></div>',
+                iconSize: [14,14],
+                iconAnchor: [7,7]
+              });
+              L.marker([p.lat, p.lng], {icon: icon}).addTo(map).bindPopup(p.title);
+              bounds.extend([p.lat, p.lng]);
+            });
+            if (points.length === 1) {
+              map.setView([points[0].lat, points[0].lng], 14);
+            } else if (points.length > 1) {
+              map.fitBounds(bounds, { padding: [40, 40] });
+            }
+            setTimeout(function(){ map.invalidateSize(true); }, 250);
+            setTimeout(function(){ map.invalidateSize(true); }, 1000);
+          </script>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    Box(
+        modifier = modifier
+            .background(HudColors.BgPrimary)
+            .focusProperties { canFocus = false },
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize(0.96f)
-                .background(HudColors.BgCard, RoundedCornerShape(16.dp))
-                .focusProperties { canFocus = false }
-        ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("// MAPA SCI", color = HudColors.AccentPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                        Text(ubication ?: "$lat,$lng", color = HudColors.Amber, fontSize = 12.sp)
+        if (loadFailed) {
+            Text("No se pudo cargar el mapa", color = HudColors.TextMuted, fontWeight = FontWeight.Bold)
+        } else {
+            key(html) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { context ->
+                        WebView(context).apply {
+                            layoutParams = FrameLayout.LayoutParams(
+                                FrameLayout.LayoutParams.MATCH_PARENT,
+                                FrameLayout.LayoutParams.MATCH_PARENT
+                            )
+                            setBackgroundColor(0xFF1E1E20.toInt())
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            settings.builtInZoomControls = false
+                            settings.displayZoomControls = false
+                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            isFocusable = false
+                            isFocusableInTouchMode = false
+                            descendantFocusability = FrameLayout.FOCUS_BLOCK_DESCENDANTS
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    loading = false
+                                    view?.evaluateJavascript(
+                                        "if (typeof map !== 'undefined') { map.invalidateSize(true); }",
+                                        null
+                                    )
+                                }
+                                override fun onReceivedError(
+                                    view: WebView?,
+                                    request: WebResourceRequest?,
+                                    error: WebResourceError?
+                                ) {
+                                    if (request?.isForMainFrame == true) {
+                                        loadFailed = true
+                                        loading = false
+                                    }
+                                }
+                            }
+                            loadDataWithBaseURL(
+                                "https://unpkg.com/",
+                                html,
+                                "text/html",
+                                "UTF-8",
+                                null
+                            )
+                        }
                     }
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.focusRequester(focusRequester),
-                        colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
-                    ) {
-                        Text("CERRAR MAPA", fontWeight = FontWeight.Bold)
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                SciOsmMap(
-                    lat = lat,
-                    lng = lng,
-                    title = title,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(HudColors.BgPrimary, RoundedCornerShape(12.dp))
-                        .focusProperties { canFocus = false },
-                    allowWebView = true
                 )
             }
         }
+
+        if (loading && !loadFailed) {
+            CircularProgressIndicator(color = HudColors.AccentPrimary, strokeWidth = 3.dp)
+        }
+
+        Text(
+            "${points.size} SCI en mapa",
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp)
+                .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -580,5 +703,14 @@ fun SciOsmMap(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+private fun formatSciTime(raw: String): String {
+    val t = raw.trim()
+    return when {
+        t.length >= 19 && t.contains('T') -> t.substring(11, 19) // HH:mm:ss
+        t.length >= 8 && t.contains(':') && !t.contains('T') -> t.take(8)
+        else -> t
     }
 }

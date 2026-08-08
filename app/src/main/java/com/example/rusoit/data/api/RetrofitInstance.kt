@@ -25,7 +25,7 @@ object RetrofitInstance {
      * TV física misma WiFi → IP de la PC (ej. 192.168.1.71).
      * Emulador Android → usar 10.0.2.2 en lugar de la IP LAN.
      */
-    private const val USE_LOCAL_API = true
+    private const val USE_LOCAL_API = false
     private const val LOCAL_API_HOST = "192.168.1.71" // cambia si tu IP LAN es otra
     private const val LOCAL_API_PORT = 3000
 

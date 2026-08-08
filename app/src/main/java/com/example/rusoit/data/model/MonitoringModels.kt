@@ -3,6 +3,7 @@ package com.example.rusoit.data.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import java.util.Locale
 
 @Serializable
 data class StatusCount(
@@ -182,8 +183,19 @@ data class SCIInformation(
     val id_disturbing_phenomen: Int? = null
 ) {
     fun isActive(): Boolean {
-        val s = status?.lowercase().orEmpty()
-        return s == "active" || s == "activo"
+        val s = status?.trim()?.lowercase().orEmpty()
+        return s == "active" || s == "activo" || s.contains("activ")
+    }
+
+    /** Etiqueta de estado para UI TV (siempre en español). */
+    fun statusLabelEs(): String = when {
+        isActive() -> "ACTIVO"
+        status.isNullOrBlank() -> "CERRADO"
+        else -> status.trim().uppercase(Locale.getDefault())
+            .replace("ACTIVE", "ACTIVO")
+            .replace("INACTIVE", "INACTIVO")
+            .replace("CLOSED", "CERRADO")
+            .replace("CLOSE", "CERRADO")
     }
 
     fun parseLatLng(): Pair<Double, Double>? {
@@ -219,7 +231,43 @@ data class User(
     val status_now: String? = null,
     val type_user: String? = null,
     val email: String? = null,
-    val phone: String? = null
+    val phone: String? = null,
+    val profile_image_url: String? = null,
+    val cover_image: String? = null,
+    val employees: EmployeeInfo? = null
+) {
+    fun fullName(): String = listOf(first_name, second_name, last_name, second_last_name)
+        .filter { !it.isNullOrBlank() }
+        .joinToString(" ")
+        .ifBlank { "Sin nombre" }
+
+    fun imageUrl(): String? =
+        profile_image_url?.takeIf { it.isNotBlank() }
+            ?: cover_image?.takeIf { it.isNotBlank() }
+            ?: employees?.profile_image_url?.takeIf { it.isNotBlank() }
+            ?: employees?.cover_image?.takeIf { it.isNotBlank() }
+
+    fun guardiaName(): String? =
+        employees?.work_shift?.name?.trim()?.takeIf { it.isNotEmpty() }
+
+    fun isEmployeeType(): Boolean =
+        type_user.equals("empleado", ignoreCase = true) || employees != null
+
+    fun isVolunteerType(): Boolean =
+        type_user.equals("voluntario", ignoreCase = true)
+}
+
+@Serializable
+data class EmployeeInfo(
+    val id: Int? = null,
+    val id_user: Int? = null,
+    val id_work_shift: Int? = null,
+    val employee_number: String? = null,
+    val position: String? = null,
+    val type_position: String? = null,
+    val work_shift: WorkShift? = null,
+    val profile_image_url: String? = null,
+    val cover_image: String? = null
 )
 
 @Serializable

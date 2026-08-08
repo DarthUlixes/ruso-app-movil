@@ -118,12 +118,6 @@ fun StatisticsView(viewModel: MonitoringViewModel, onSessionExpired: () -> Unit)
                         viewModel.loadDataStudio(next)
                     }
                 )
-                Button(
-                    onClick = { viewModel.loadDataStudio(pendingOffset) },
-                    colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
-                ) {
-                    Text("ACTUALIZAR", fontWeight = FontWeight.Black, fontSize = 12.sp)
-                }
             }
         }
 
@@ -260,7 +254,7 @@ fun StatisticsView(viewModel: MonitoringViewModel, onSessionExpired: () -> Unit)
                     }
                 }
 
-                // 3) Por colonia — POST /folio/cologne-group-by-date-status/todas
+                // 3) Por colonia — gráfica de pastel
                 ChartCard(
                     modifier = Modifier.fillMaxWidth().height(340.dp),
                     title = "Incidentes por colonia",
@@ -268,7 +262,7 @@ fun StatisticsView(viewModel: MonitoringViewModel, onSessionExpired: () -> Unit)
                 ) {
                     when {
                         data.incidentsByCologne.isNotEmpty() -> {
-                            HorizontalBarChart(data.incidentsByCologne)
+                            PieChart(items = data.incidentsByCologne, colors = ChartPalette)
                         }
                         data.available.colonias.not() -> {
                             EmptyInline("No fue posible cargar el censo por colonia.")
@@ -377,60 +371,6 @@ private fun EmptyInline(text: String) {
 }
 
 @Composable
-private fun HorizontalBarChart(data: List<LabeledCount>) {
-    val rows = data.filter { it.value > 0 }.ifEmpty { data }.take(10)
-    val max = rows.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        rows.forEachIndexed { index, item ->
-            val fraction = (item.value.toFloat() / max).coerceIn(0.04f, 1f)
-            Row(
-                modifier = Modifier.fillMaxWidth().height(24.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    item.label,
-                    modifier = Modifier.width(140.dp),
-                    color = HudColors.TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(14.dp)
-                        .background(HudColors.BgPrimary, RoundedCornerShape(4.dp))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(fraction)
-                            .background(
-                                ChartPalette[index % ChartPalette.size].copy(alpha = 0.9f),
-                                RoundedCornerShape(4.dp)
-                            )
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    item.value.toString(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    modifier = Modifier.width(36.dp),
-                    textAlign = TextAlign.End
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun TypeBarChart(data: List<LabeledCount>) {
     val rows = data.filter { it.value > 0 }.ifEmpty { data }
     val max = rows.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
@@ -472,6 +412,90 @@ private fun TypeBarChart(data: List<LabeledCount>) {
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PieChart(items: List<LabeledCount>, colors: List<Color>) {
+    val positive = items.filter { it.value > 0 }.sortedByDescending { it.value }
+    val top = positive.take(7)
+    val otherSum = positive.drop(7).sumOf { it.value }
+    val rows = if (otherSum > 0) {
+        top + LabeledCount("OTRAS", otherSum)
+    } else {
+        top.ifEmpty { items }
+    }
+    val total = rows.sumOf { it.value }.toFloat()
+    if (total <= 0f) {
+        EmptyInline("Sin datos en el periodo")
+        return
+    }
+
+    Row(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(180.dp)) {
+            Canvas(modifier = Modifier.size(170.dp)) {
+                var startAngle = -90f
+                rows.forEachIndexed { index, item ->
+                    val sweep = (item.value / total) * 360f
+                    if (sweep > 0f) {
+                        drawArc(
+                            color = colors[index % colors.size],
+                            startAngle = startAngle,
+                            sweepAngle = sweep,
+                            useCenter = true
+                        )
+                        startAngle += sweep
+                    }
+                }
+            }
+            // Centro legible sobre el pastel
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(HudColors.BgCard, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    total.toInt().toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(18.dp))
+        Column(
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            rows.forEachIndexed { index, item ->
+                val pct = ((item.value / total) * 100f).toInt()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(colors[index % colors.size], CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        item.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = HudColors.TextSecondary,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${item.value} · $pct%",
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
     }

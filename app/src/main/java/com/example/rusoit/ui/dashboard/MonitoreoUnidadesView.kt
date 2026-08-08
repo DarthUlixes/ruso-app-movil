@@ -131,23 +131,6 @@ fun MonitoreoUnidadesView(viewModel: MonitoringViewModel) {
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
-            Surface(
-                onClick = { viewModel.loadUnitsOnService(silent = true) },
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = HudColors.BgCard,
-                    focusedContainerColor = HudColors.BgCardHover
-                )
-            ) {
-                Text(
-                    "ACTUALIZAR",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    color = HudColors.AccentPrimary
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))

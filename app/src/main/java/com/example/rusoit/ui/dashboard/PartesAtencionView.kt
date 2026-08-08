@@ -1,6 +1,10 @@
 @file:OptIn(ExperimentalTvMaterial3Api::class)
 package com.example.rusoit.ui.dashboard
 
+import android.os.Build
+import android.util.TypedValue
+import android.view.View
+import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.material3.*
 import com.example.rusoit.data.model.*
 import com.example.rusoit.ui.components.FocusTrappedModal
@@ -304,6 +309,19 @@ fun ServiceDetailOverlay(
         onDispose { viewModel.clearFolioDetail() }
     }
 
+    // Foco inicial en CERRAR; al terminar la carga lo recuperamos si se perdió
+    LaunchedEffect(folio.id) {
+        focusRequester.requestFocus()
+    }
+    var wasLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(detailResource) {
+        val loading = detailResource is Resource.Loading
+        if (wasLoading && !loading) {
+            focusRequester.requestFocus()
+        }
+        wasLoading = loading
+    }
+
     val catalog = catalogResource?.data ?: PartesCatalog()
     val lookups = remember(catalog) { PartesLookups.from(catalog) }
     val current = when (detailResource) {
@@ -312,6 +330,7 @@ fun ServiceDetailOverlay(
     }
 
     FocusTrappedModal(
+        onDismiss = onDismiss,
         scrimAlpha = 0.9f,
         initialFocusRequester = focusRequester
     ) {
@@ -328,7 +347,7 @@ fun ServiceDetailOverlay(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "// PARTES DE ATENCIÓN",
                             style = MaterialTheme.typography.labelSmall,
@@ -341,12 +360,22 @@ fun ServiceDetailOverlay(
                             fontWeight = FontWeight.Black
                         )
                     }
-                    Button(
+                    Surface(
                         onClick = onDismiss,
                         modifier = Modifier.focusRequester(focusRequester),
-                        colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = HudColors.AccentPrimary,
+                            focusedContainerColor = HudColors.AccentPrimary.copy(alpha = 0.85f)
+                        )
                     ) {
-                        Text("CERRAR", fontWeight = FontWeight.Bold)
+                        Text(
+                            "CERRAR",
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
 
@@ -366,18 +395,18 @@ fun ServiceDetailOverlay(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (detailResource is Resource.Loading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = HudColors.AccentPrimary)
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                            .padding(22.dp)
-                    ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                        .padding(22.dp)
+                ) {
+                    if (detailResource is Resource.Loading) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = HudColors.AccentPrimary)
+                        }
+                    } else {
                         when (tab) {
                             ParteDetailTab.GENERALES -> GeneralesTab(current, lookups)
                             ParteDetailTab.TRIPULACION -> TripulacionTab(current, lookups)
@@ -490,15 +519,40 @@ private fun ResumenTab(folio: Folio) {
         !folio.summary.isNullOrBlank() -> folio.summary
         else -> ServiceSummaryBuilder.build(folio)
     }
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
-            lineHeight = 30.sp
-        )
-    }
+
+    // AutoSize nativo: encoge la fuente para que el párrafo quepa completo (sin scroll en TV)
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            TextView(context).apply {
+                setTextColor(android.graphics.Color.WHITE)
+                setLineSpacing(0f, 1.35f)
+                gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                setPadding(0, 0, 0, 0)
+                ellipsize = null
+                // maxLines concreto: AutoSize necesita tope para calcular el tamaño
+                maxLines = 40
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    setAutoSizeTextTypeUniformWithConfiguration(
+                        10,
+                        22,
+                        1,
+                        TypedValue.COMPLEX_UNIT_SP
+                    )
+                } else {
+                    textSize = 14f
+                }
+            }
+        },
+        update = { tv ->
+            if (tv.text?.toString() != text) {
+                tv.text = text
+            }
+        }
+    )
 }
+
 
 @Composable
 private fun DetailField(label: String, value: String, modifier: Modifier = Modifier) {

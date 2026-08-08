@@ -96,11 +96,12 @@ fun AgendaView(viewModel: MonitoringViewModel) {
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Calendario mensual
-                    Card(
-                        onClick = {},
-                        modifier = Modifier.weight(1.15f).fillMaxHeight(),
-                        colors = CardDefaults.colors(containerColor = HudColors.BgCard)
+                    // Calendario mensual (Box: el Card robaba el foco del D-pad)
+                    Box(
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .fillMaxHeight()
+                            .background(HudColors.BgCard, RoundedCornerShape(12.dp))
                     ) {
                         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                             Row(
@@ -121,6 +122,34 @@ fun AgendaView(viewModel: MonitoringViewModel) {
                                 MonthNavChip("▶") {
                                     visibleMonth = (visibleMonth.clone() as Calendar).apply {
                                         add(Calendar.MONTH, 1)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Acceso rápido a meses siguientes
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                upcomingMonths(visibleMonth, count = 4).forEach { monthCal ->
+                                    val label = SimpleDateFormat("MMM", localeEs)
+                                        .format(monthCal.time)
+                                        .replaceFirstChar {
+                                            if (it.isLowerCase()) it.titlecase(localeEs) else it.toString()
+                                        }
+                                    val selected = monthCal.get(Calendar.YEAR) == visibleMonth.get(Calendar.YEAR) &&
+                                        monthCal.get(Calendar.MONTH) == visibleMonth.get(Calendar.MONTH)
+                                    MonthNavChip(label.uppercase(localeEs), selected = selected) {
+                                        visibleMonth = (monthCal.clone() as Calendar).apply {
+                                            set(Calendar.DAY_OF_MONTH, 1)
+                                            clearTime()
+                                        }
+                                        selectedDate = "%04d-%02d-01".format(
+                                            monthCal.get(Calendar.YEAR),
+                                            monthCal.get(Calendar.MONTH) + 1
+                                        )
                                     }
                                 }
                             }
@@ -232,20 +261,22 @@ fun AgendaView(viewModel: MonitoringViewModel) {
 }
 
 @Composable
-private fun MonthNavChip(label: String, onClick: () -> Unit) {
+private fun MonthNavChip(label: String, selected: Boolean = false, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = HudColors.BgPrimary,
+            containerColor = if (selected) HudColors.AccentGlow else HudColors.BgPrimary,
             focusedContainerColor = HudColors.BgCardHover
         )
     ) {
         Text(
             label,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            fontWeight = FontWeight.Black
+            fontWeight = FontWeight.Black,
+            color = if (selected) HudColors.AccentPrimary else HudColors.TextPrimary,
+            fontSize = 12.sp
         )
     }
 }
@@ -326,6 +357,7 @@ private fun DayEventPanel(
 private fun AgendaEventDetailOverlay(event: AgendaCalendarEvent, onDismiss: () -> Unit) {
     val focusRequester = remember { FocusRequester() }
     FocusTrappedModal(
+        onDismiss = onDismiss,
         scrimAlpha = 0.88f,
         initialFocusRequester = focusRequester
     ) {
@@ -398,6 +430,31 @@ private fun formatSpanishDate(iso: String): String {
         SimpleDateFormat("d 'de' MMMM 'de' yyyy", Locale("es", "MX")).format(cal.time)
     } catch (_: Exception) {
         iso
+    }
+}
+
+/** Mes actual + siguientes (para chips de acceso rápido). */
+private fun upcomingMonths(from: Calendar, count: Int): List<Calendar> {
+    val base = Calendar.getInstance().apply {
+        set(Calendar.DAY_OF_MONTH, 1)
+        clearTime()
+    }
+    // Si el mes visible es anterior a hoy, partimos del mes visible; si no, del actual
+    val start = if (
+        from.get(Calendar.YEAR) < base.get(Calendar.YEAR) ||
+        (from.get(Calendar.YEAR) == base.get(Calendar.YEAR) &&
+            from.get(Calendar.MONTH) < base.get(Calendar.MONTH))
+    ) {
+        (from.clone() as Calendar)
+    } else {
+        (base.clone() as Calendar)
+    }
+    return (0 until count).map { i ->
+        (start.clone() as Calendar).apply {
+            add(Calendar.MONTH, i)
+            set(Calendar.DAY_OF_MONTH, 1)
+            clearTime()
+        }
     }
 }
 

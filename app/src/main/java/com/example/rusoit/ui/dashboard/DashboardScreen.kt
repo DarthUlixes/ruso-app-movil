@@ -4,17 +4,11 @@ package com.example.rusoit.ui.dashboard
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
@@ -25,9 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -38,8 +30,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.*
 import com.example.rusoit.R
-import com.example.rusoit.ui.components.FocusTrappedModal
-import com.example.rusoit.ui.components.PersonnelCard
 import com.example.rusoit.viewmodel.MonitoringViewModel
 import com.example.rusoit.viewmodel.ViewModelFactory
 import com.example.rusoit.utils.Resource
@@ -59,9 +49,8 @@ fun DashboardScreen(
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(null) }
     var selectedSCI by remember { mutableStateOf<SCIInformation?>(null) }
     var selectedFolio by remember { mutableStateOf<Folio?>(null) }
-    var selectedTool by remember { mutableStateOf<Tool?>(null) }
     
-    val isOverlayOpen = selectedVehicle != null || selectedSCI != null || selectedFolio != null || selectedTool != null
+    val isOverlayOpen = selectedVehicle != null || selectedSCI != null || selectedFolio != null
 
     // Monitoreo en tiempo real para SCI (Polleo cada 30 segundos como en despacho web)
     LaunchedEffect(Unit) {
@@ -104,9 +93,8 @@ fun DashboardScreen(
                     SidebarIcon(Icons.AutoMirrored.Filled.List, "PARTES DE\nATENCIÓN", selectedTab == 2, enabled = !isOverlayOpen) { selectedTab = 2 }
                     SidebarIcon(Icons.Default.CalendarMonth, "AGENDA", selectedTab == 3, enabled = !isOverlayOpen) { selectedTab = 3 }
                     SidebarIcon(Icons.Default.Shield, "SCI", selectedTab == 4, enabled = !isOverlayOpen) { selectedTab = 4 }
-                    SidebarIcon(Icons.Default.Build, "HERRAMIENTAS", selectedTab == 5, enabled = !isOverlayOpen) { selectedTab = 5 }
-                    SidebarIcon(Icons.Default.FireTruck, "CONTROL DE\nVEHÍCULO", selectedTab == 6, enabled = !isOverlayOpen) { selectedTab = 6 }
-                    SidebarIcon(Icons.Default.Person, "MANDO", selectedTab == 7, enabled = !isOverlayOpen) { selectedTab = 7 }
+                    SidebarIcon(Icons.Default.FireTruck, "CONTROL DE\nVEHÍCULO", selectedTab == 5, enabled = !isOverlayOpen) { selectedTab = 5 }
+                    SidebarIcon(Icons.Default.Person, "PERSONAL", selectedTab == 6, enabled = !isOverlayOpen) { selectedTab = 6 }
                 }
 
                 HorizontalDivider(
@@ -144,9 +132,8 @@ fun DashboardScreen(
                         2 -> ServicesView(monitoringViewModel) { selectedFolio = it }
                         3 -> AgendaView(monitoringViewModel)
                         4 -> SCIView(monitoringViewModel) { selectedSCI = it }
-                        5 -> InventoryView(monitoringViewModel) { selectedTool = it }
-                        6 -> VehiclesControlView(monitoringViewModel, enabled = !isOverlayOpen) { selectedVehicle = it }
-                        7 -> PersonnelView(monitoringViewModel)
+                        5 -> VehiclesControlView(monitoringViewModel, enabled = !isOverlayOpen) { selectedVehicle = it }
+                        6 -> PersonalView(monitoringViewModel)
                         else -> PlaceholderView("Módulo no disponible")
                     }
                 }
@@ -170,109 +157,6 @@ fun DashboardScreen(
                 folio = selectedFolio!!,
                 viewModel = monitoringViewModel
             ) { selectedFolio = null }
-        }
-        
-        if (selectedTool != null) {
-            ToolDetailOverlay(selectedTool!!) { selectedTool = null }
-        }
-    }
-}
-
-@Composable
-fun ToolDetailOverlay(tool: Tool, onDismiss: () -> Unit) {
-    val focusRequester = remember { FocusRequester() }
-    val scrollState = rememberScrollState()
-    FocusTrappedModal(
-        scrimAlpha = 0.9f,
-        initialFocusRequester = focusRequester
-    ) {
-        Card(
-            onClick = {},
-            modifier = Modifier
-                .width(550.dp)
-                .heightIn(max = 520.dp),
-            colors = CardDefaults.colors(containerColor = HudColors.BgCard)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(40.dp)
-                    .verticalScroll(scrollState)
-                    .focusable()
-            ) {
-                Text(
-                    "FICHA DE HERRAMIENTA",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = HudColors.AccentPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    tool.name ?: "Sin identificación",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-
-                InfoRow(
-                    "ESTADO:",
-                    tool.status?.uppercase() ?: "OK",
-                    if (tool.status.equals("active", true)) HudColors.Green else HudColors.Amber
-                )
-                InfoRow("DESCRIPCIÓN:", tool.description ?: "Sin detalles técnicos.")
-
-                Spacer(modifier = Modifier.height(40.dp))
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End).focusRequester(focusRequester),
-                    colors = ButtonDefaults.colors(containerColor = HudColors.AccentPrimary)
-                ) {
-                    Text("CERRAR", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PersonnelView(viewModel: MonitoringViewModel) {
-    val personnelResource by viewModel.personnel.collectAsState()
-    var selectedFilter by remember { mutableStateOf("TODOS") }
-    val filters = listOf("TODOS", "EMPLEADO", "VOLUNTARIO", "SISTEMAS")
-    
-    LaunchedEffect(Unit) { viewModel.loadPersonnel() }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-            Column {
-                Text("// RECURSO HUMANO", style = MaterialTheme.typography.labelSmall, color = HudColors.AccentSecondary, letterSpacing = 2.sp)
-                Text("Oficiales y Bomberos", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                filters.forEach { filter ->
-                    Surface(
-                        onClick = { selectedFilter = filter },
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (selectedFilter == filter) HudColors.AccentGlow else HudColors.BgCard,
-                            focusedContainerColor = HudColors.BgCardHover
-                        ),
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))
-                    ) {
-                        Text(text = filter, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.labelSmall, color = if (selectedFilter == filter) HudColors.AccentPrimary else HudColors.TextMuted, fontWeight = FontWeight.Black)
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(32.dp))
-        when {
-            personnelResource is Resource.Loading || personnelResource == null -> { LoadingSpinner("Actualizando lista...") }
-            personnelResource is Resource.Error -> { ErrorMessage(personnelResource?.message ?: "Error", onRetry = { viewModel.loadPersonnel() }) }
-            else -> {
-                val data = personnelResource?.data ?: emptyList()
-                val filteredData = if (selectedFilter == "TODOS") data else data.filter { it.type_user?.uppercase() == selectedFilter }
-                LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    items(filteredData) { person -> PersonnelCard(person = person) { } }
-                }
-            }
         }
     }
 }

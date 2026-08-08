@@ -427,6 +427,7 @@ fun VehicleDetailOverlay(
     }
 
     FocusTrappedModal(
+        onDismiss = onDismiss,
         scrimAlpha = 0.85f,
         initialFocusRequester = focusRequester
     ) {
